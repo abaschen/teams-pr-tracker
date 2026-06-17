@@ -20,7 +20,17 @@ output "lambda_function_name" {
 
 output "dynamodb_table_name" {
   description = "Name of the DynamoDB table for PR state"
-  value       = "" # Populated after DynamoDB resource is defined in dynamodb.tf
+  value       = aws_dynamodb_table.pr_state.name
+}
+
+output "kms_key_arn" {
+  description = "ARN of the KMS key for credential encryption"
+  value       = aws_kms_key.credential_encryption.arn
+}
+
+output "kms_key_alias" {
+  description = "Alias of the KMS key for credential encryption"
+  value       = aws_kms_alias.credential_encryption.name
 }
 
 output "api_gateway_id" {

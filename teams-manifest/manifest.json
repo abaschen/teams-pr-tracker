@@ -1,0 +1,41 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "00000000-0000-0000-0000-000000000000",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://example.com",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
+  },
+  "name": {
+    "short": "PR Tracker",
+    "full": "Teams PR Tracker"
+  },
+  "description": {
+    "short": "Track PR approvals across GitHub, Bitbucket, and GitLab",
+    "full": "Teams PR Tracker monitors pull requests across multiple source control providers (GitHub, Bitbucket, GitLab) and orchestrates team-based validation workflows. It creates dedicated Teams threads to track PR progress, enforces sequential approval chains, and provides merge readiness indicators with @mentions for required validation teams."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#4F6BED",
+  "bots": [
+    {
+      "botId": "00000000-0000-0000-0000-000000000000",
+      "scopes": [
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": true,
+      "commandLists": []
+    }
+  ],
+  "permissions": [
+    "messageTeamMembers"
+  ],
+  "validDomains": []
+}
