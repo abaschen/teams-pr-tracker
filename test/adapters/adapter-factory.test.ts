@@ -1,29 +1,64 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { getAdapter } from '../../src/adapters/adapter-factory.js';
+import { GitHubAdapter } from '../../src/adapters/github-adapter.js';
+import { BitbucketAdapter } from '../../src/adapters/bitbucket-adapter.js';
 
-describe('adapter-factory', () => {
-  describe('getAdapter', () => {
-    it('throws for an unsupported provider string', () => {
-      expect(() => getAdapter('unknown' as never)).toThrow(
-        'Unsupported provider: "unknown"'
-      );
+describe('getAdapter', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.GITHUB_TOKEN;
+  });
+
+  describe('github provider', () => {
+    it('should return a GitHubAdapter when token is provided as parameter', () => {
+      const adapter = getAdapter('github', 'ghp_test-token');
+      expect(adapter).toBeInstanceOf(GitHubAdapter);
     });
 
-    it('throws "not yet implemented" for github until adapter is wired', () => {
+    it('should return a GitHubAdapter when GITHUB_TOKEN env var is set', () => {
+      process.env.GITHUB_TOKEN = 'ghp_env-token';
+      const adapter = getAdapter('github');
+      expect(adapter).toBeInstanceOf(GitHubAdapter);
+    });
+
+    it('should throw when no token is available', () => {
       expect(() => getAdapter('github')).toThrow(
-        'Adapter for provider "github" is not yet implemented'
+        'GitHub access token is required'
       );
     });
 
-    it('throws "not yet implemented" for bitbucket until adapter is wired', () => {
+    it('should prefer explicit token over environment variable', () => {
+      process.env.GITHUB_TOKEN = 'ghp_env-token';
+      const adapter = getAdapter('github', 'ghp_explicit-token');
+      expect(adapter).toBeInstanceOf(GitHubAdapter);
+    });
+  });
+
+  describe('unsupported providers', () => {
+    it('should throw for gitlab (not yet implemented)', () => {
+      expect(() => getAdapter('gitlab')).toThrow();
+    });
+  });
+
+  describe('bitbucket provider', () => {
+    afterEach(() => {
+      delete process.env.BITBUCKET_TOKEN;
+    });
+
+    it('should return a BitbucketAdapter when token is provided as parameter', () => {
+      const adapter = getAdapter('bitbucket', 'bb-test-token');
+      expect(adapter).toBeInstanceOf(BitbucketAdapter);
+    });
+
+    it('should return a BitbucketAdapter when BITBUCKET_TOKEN env var is set', () => {
+      process.env.BITBUCKET_TOKEN = 'bb-env-token';
+      const adapter = getAdapter('bitbucket');
+      expect(adapter).toBeInstanceOf(BitbucketAdapter);
+    });
+
+    it('should throw when no token is available for bitbucket', () => {
       expect(() => getAdapter('bitbucket')).toThrow(
-        'Adapter for provider "bitbucket" is not yet implemented'
-      );
-    });
-
-    it('throws "not yet implemented" for gitlab until adapter is wired', () => {
-      expect(() => getAdapter('gitlab')).toThrow(
-        'Adapter for provider "gitlab" is not yet implemented'
+        'Bitbucket access token is required'
       );
     });
   });
