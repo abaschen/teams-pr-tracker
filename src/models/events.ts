@@ -51,6 +51,7 @@ export interface GitHubRawEvent {
     number: number;
     title: string;
     html_url: string;
+    merged?: boolean;
     user: { login: string };
     head: { ref: string };
     base: { ref: string };
@@ -72,9 +73,12 @@ export interface GitHubRawEvent {
 
 /** Raw Bitbucket webhook event payload (subset of relevant fields) */
 export interface BitbucketRawEvent {
+  /** Bitbucket webhook event key, e.g. 'pullrequest:created', 'pullrequest:fulfilled' */
+  eventKey?: string;
   pullrequest?: {
     id: number;
     title: string;
+    state?: string;
     links: { html: { href: string } };
     author: { display_name: string; nickname: string };
     source: { branch: { name: string } };
