@@ -212,13 +212,13 @@ describe('ApprovalChainManagerImpl', () => {
     });
   });
 
-  describe('processApproval (stub)', () => {
-    it('returns a result with rejected: false and no changes', () => {
+  describe('processApproval', () => {
+    it('advances chain when the active team approves', () => {
       const prState = createEmptyPRState({
         approvalChains: [
           {
             chainId: 'chain-1',
-            orderedTeams: ['security', 'platform'],
+            orderedTeams: ['security', 'platform', 'release'],
             activeIndex: 0,
             completedTeams: [],
             complete: false,
@@ -229,14 +229,60 @@ describe('ApprovalChainManagerImpl', () => {
       const result = manager.processApproval('security', prState);
 
       expect(result.rejected).toBe(false);
+      expect(result.updatedState.approvalChains[0].activeIndex).toBe(1);
+      expect(result.updatedState.approvalChains[0].completedTeams).toEqual(['security']);
+      expect(result.updatedState.approvalChains[0].complete).toBe(false);
+      expect(result.teamsToActivate).toEqual(['platform']);
+      expect(result.teamsToDeactivate).toEqual([]);
+    });
+
+    it('rejects out-of-order approval (team index > activeIndex)', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 0,
+            completedTeams: [],
+            complete: false,
+          },
+        ],
+      });
+
+      const result = manager.processApproval('platform', prState);
+
+      expect(result.rejected).toBe(true);
+      expect(result.rejectionReason).toContain('platform');
+      expect(result.rejectionReason).toContain('security');
+      expect(result.updatedState).toBe(prState); // no state change
       expect(result.teamsToActivate).toEqual([]);
       expect(result.teamsToDeactivate).toEqual([]);
-      expect(result.updatedState).toBe(prState);
     });
-  });
 
-  describe('revokeApproval (stub)', () => {
-    it('returns a result with rejected: false and no changes', () => {
+    it('marks chain complete when last team approves', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform'],
+            activeIndex: 1,
+            completedTeams: ['security'],
+            complete: false,
+          },
+        ],
+      });
+
+      const result = manager.processApproval('platform', prState);
+
+      expect(result.rejected).toBe(false);
+      expect(result.updatedState.approvalChains[0].complete).toBe(true);
+      expect(result.updatedState.approvalChains[0].activeIndex).toBe(2);
+      expect(result.updatedState.approvalChains[0].completedTeams).toEqual(['security', 'platform']);
+      expect(result.teamsToActivate).toEqual([]); // no next team
+      expect(result.teamsToDeactivate).toEqual([]);
+    });
+
+    it('returns rejected: false for teams not in any chain', () => {
       const prState = createEmptyPRState({
         approvalChains: [
           {
@@ -249,12 +295,246 @@ describe('ApprovalChainManagerImpl', () => {
         ],
       });
 
+      const result = manager.processApproval('design', prState);
+
+      expect(result.rejected).toBe(false);
+      expect(result.updatedState).toBe(prState); // no state change
+      expect(result.teamsToActivate).toEqual([]);
+      expect(result.teamsToDeactivate).toEqual([]);
+    });
+
+    it('does not affect other chains when approving in one chain', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform'],
+            activeIndex: 0,
+            completedTeams: [],
+            complete: false,
+          },
+          {
+            chainId: 'chain-2',
+            orderedTeams: ['qa', 'ops'],
+            activeIndex: 0,
+            completedTeams: [],
+            complete: false,
+          },
+        ],
+      });
+
+      const result = manager.processApproval('security', prState);
+
+      expect(result.rejected).toBe(false);
+      // chain-1 advanced
+      expect(result.updatedState.approvalChains[0].activeIndex).toBe(1);
+      expect(result.updatedState.approvalChains[0].completedTeams).toEqual(['security']);
+      // chain-2 unaffected
+      expect(result.updatedState.approvalChains[1].activeIndex).toBe(0);
+      expect(result.updatedState.approvalChains[1].completedTeams).toEqual([]);
+      expect(result.updatedState.approvalChains[1].complete).toBe(false);
+    });
+
+    it('handles idempotent approval (team index < activeIndex)', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 2,
+            completedTeams: ['security', 'platform'],
+            complete: false,
+          },
+        ],
+      });
+
+      const result = manager.processApproval('security', prState);
+
+      expect(result.rejected).toBe(false);
+      expect(result.updatedState).toBe(prState); // no state change
+      expect(result.teamsToActivate).toEqual([]);
+      expect(result.teamsToDeactivate).toEqual([]);
+    });
+
+    it('does not mutate the original PRState', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform'],
+            activeIndex: 0,
+            completedTeams: [],
+            complete: false,
+          },
+        ],
+      });
+
+      manager.processApproval('security', prState);
+
+      // Original state should be unchanged
+      expect(prState.approvalChains[0].activeIndex).toBe(0);
+      expect(prState.approvalChains[0].completedTeams).toEqual([]);
+      expect(prState.approvalChains[0].complete).toBe(false);
+    });
+
+    it('returns rejected: false with no changes when there are no chains', () => {
+      const prState = createEmptyPRState();
+
+      const result = manager.processApproval('security', prState);
+
+      expect(result.rejected).toBe(false);
+      expect(result.updatedState).toBe(prState);
+      expect(result.teamsToActivate).toEqual([]);
+      expect(result.teamsToDeactivate).toEqual([]);
+    });
+  });
+
+  describe('revokeApproval', () => {
+    it('cascades deactivation to all subsequent teams', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 2,
+            completedTeams: ['security', 'platform'],
+            complete: false,
+          },
+        ],
+      });
+
       const result = manager.revokeApproval('security', prState);
+
+      expect(result.rejected).toBe(false);
+      // platform was completed, release was active — both deactivated
+      expect(result.teamsToDeactivate).toContain('platform');
+      expect(result.teamsToDeactivate).toContain('release');
+      expect(result.teamsToDeactivate).toHaveLength(2);
+    });
+
+    it('resets activeIndex to the revoking team position', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 2,
+            completedTeams: ['security', 'platform'],
+            complete: false,
+          },
+        ],
+      });
+
+      const result = manager.revokeApproval('security', prState);
+
+      const chain = result.updatedState.approvalChains[0];
+      expect(chain.activeIndex).toBe(0);
+    });
+
+    it('marks a completed chain as incomplete after revocation', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 3,
+            completedTeams: ['security', 'platform', 'release'],
+            complete: true,
+          },
+        ],
+      });
+
+      const result = manager.revokeApproval('platform', prState);
+
+      const chain = result.updatedState.approvalChains[0];
+      expect(chain.complete).toBe(false);
+      expect(chain.activeIndex).toBe(1);
+    });
+
+    it('does not affect teams not in any chain', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 1,
+            completedTeams: ['security'],
+            complete: false,
+          },
+        ],
+      });
+
+      const result = manager.revokeApproval('unrelated-team', prState);
 
       expect(result.rejected).toBe(false);
       expect(result.teamsToActivate).toEqual([]);
       expect(result.teamsToDeactivate).toEqual([]);
-      expect(result.updatedState).toBe(prState);
+      expect(result.updatedState).toEqual(prState);
+    });
+
+    it('trims completedTeams to exclude deactivated teams', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 3,
+            completedTeams: ['security', 'platform', 'release'],
+            complete: true,
+          },
+        ],
+      });
+
+      const result = manager.revokeApproval('security', prState);
+
+      const chain = result.updatedState.approvalChains[0];
+      // security revokes, so completedTeams should be empty (only teams before security are kept)
+      expect(chain.completedTeams).toEqual([]);
+      expect(chain.completedTeams).not.toContain('platform');
+      expect(chain.completedTeams).not.toContain('release');
+      expect(chain.completedTeams).not.toContain('security');
+    });
+
+    it('preserves completedTeams for teams before the revoking team', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release', 'qa'],
+            activeIndex: 4,
+            completedTeams: ['security', 'platform', 'release', 'qa'],
+            complete: true,
+          },
+        ],
+      });
+
+      const result = manager.revokeApproval('release', prState);
+
+      const chain = result.updatedState.approvalChains[0];
+      // Only teams before 'release' (index 2) are kept: security, platform
+      expect(chain.completedTeams).toEqual(['security', 'platform']);
+      expect(chain.activeIndex).toBe(2);
+      expect(chain.complete).toBe(false);
+    });
+
+    it('does not mutate the original PRState', () => {
+      const prState = createEmptyPRState({
+        approvalChains: [
+          {
+            chainId: 'chain-1',
+            orderedTeams: ['security', 'platform', 'release'],
+            activeIndex: 2,
+            completedTeams: ['security', 'platform'],
+            complete: false,
+          },
+        ],
+      });
+
+      manager.revokeApproval('security', prState);
+
+      // Original state should be unchanged
+      expect(prState.approvalChains[0].activeIndex).toBe(2);
+      expect(prState.approvalChains[0].completedTeams).toEqual(['security', 'platform']);
     });
   });
 });
