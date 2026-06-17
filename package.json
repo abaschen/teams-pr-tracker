@@ -1,0 +1,33 @@
+{
+  "name": "teams-pr-tracker",
+  "version": "1.0.0",
+  "description": "Serverless PR tracking system bridging GitHub, Bitbucket, and GitLab with Microsoft Teams",
+  "main": "dist/handlers/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/ test/",
+    "lint:fix": "eslint src/ test/ --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:properties": "vitest run test/properties/",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": ["teams", "pull-request", "webhook", "github", "bitbucket", "gitlab", "serverless"],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.29.2",
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "fast-check": "^4.8.0",
+    "prettier": "^3.8.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
