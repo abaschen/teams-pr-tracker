@@ -15,7 +15,15 @@
     "test:properties": "vitest run test/properties/",
     "test:coverage": "vitest run --coverage"
   },
-  "keywords": ["teams", "pull-request", "webhook", "github", "bitbucket", "gitlab", "serverless"],
+  "keywords": [
+    "teams",
+    "pull-request",
+    "webhook",
+    "github",
+    "bitbucket",
+    "gitlab",
+    "serverless"
+  ],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.29.2",
@@ -29,5 +37,9 @@
     "prettier": "^3.8.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1071.0",
+    "@aws-sdk/lib-dynamodb": "^3.1071.0"
   }
 }
