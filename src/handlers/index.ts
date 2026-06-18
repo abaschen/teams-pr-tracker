@@ -36,7 +36,6 @@ import { loadAllRules } from '../repositories/rule-repository.js';
 
 // Adapters
 import { getAdapter } from '../adapters/adapter-factory.js';
-import { getGitHubAppCredentials, isGitHubAppConfigured } from '../adapters/github-app-credential-provider.js';
 
 // Utils
 import { resilientProviderCall, resilientTeamsCall } from '../utils/resilient-operations.js';
@@ -196,9 +195,6 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
       `[processEvent] Circuit open for ${provider}/${repositoryFullName}, skipping provider ops`,
     );
     hasCredentials = false;
-  } else if (provider === 'github' && isGitHubAppConfigured()) {
-    // GitHub App is configured — no need to look up Secrets Manager
-    hasCredentials = true;
   } else {
     try {
       await credentialManager.getCredentials(provider, repositoryFullName);
@@ -306,16 +302,8 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
 
   // ── Step 8: Provider operations (non-fatal, skip if no credentials) ───────
   if (hasCredentials && (eventType === 'pr_opened' || eventType === 'pr_updated')) {
-    // Prefer GitHub App tokens when configured (no PAT needed)
-    let accessToken: string;
-    if (provider === 'github' && isGitHubAppConfigured()) {
-      const appCreds = await getGitHubAppCredentials(repositoryFullName);
-      accessToken = appCreds.accessToken;
-    } else {
-      const credentials = await credentialManager.getCredentials(provider, repositoryFullName);
-      accessToken = credentials.accessToken;
-    }
-    const adapter = getAdapter(provider, accessToken);
+    const credentials = await credentialManager.getCredentials(provider, repositoryFullName);
+    const adapter = getAdapter(provider, credentials.accessToken);
     const prRef = buildPRReference(event);
 
     // Assign reviewers for required teams

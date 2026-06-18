@@ -121,8 +121,6 @@ resource "aws_lambda_function" "webhook" {
       TEAMS_BOT_PASSWORD      = var.teams_bot_password
       TEAMS_TENANT_ID         = "bac9d2f7-1353-4efe-9c11-f4b3c2ae6445"
       GITHUB_WEBHOOK_SECRET   = "/${local.name_prefix}/secrets/webhook-secret-github"
-      GITHUB_APP_ID           = var.github_app_id
-      GITHUB_APP_PRIVATE_KEY  = "/${local.name_prefix}/secrets/github-app-private-key"
       BITBUCKET_WEBHOOK_SECRET = "/${local.name_prefix}/secrets/webhook-secret-bitbucket"
       GITLAB_WEBHOOK_SECRET   = "/${local.name_prefix}/secrets/webhook-secret-gitlab"
       NODE_ENV                = local.environment
