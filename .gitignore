@@ -169,3 +169,8 @@ bootstrap/*.auto.tfvars
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+playwright.config.ts
+tests/
