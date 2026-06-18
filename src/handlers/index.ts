@@ -292,7 +292,8 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
           repositoryFullName: state!.repositoryFullName,
           branch: state!.branch,
           prUrl: state!.prUrl,
-        }, state!.requiredTeams, state!.approvedTeams),
+        }, state!.requiredTeams, state!.approvedTeams,
+        resolvedChannel.maintainersTagId ? { tagId: resolvedChannel.maintainersTagId, tagName: resolvedChannel.maintainersTagName ?? 'Maintainers' } : undefined),
       { operation: 'updateThreadStatus' },
     );
 
@@ -336,6 +337,36 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
         { provider, operation: 'addLabels' },
       );
     }
+  }
+
+  // ── Step 8b: Handle PR merged/closed — mark thread as done ────────────────
+  if ((eventType === 'pr_merged' || eventType === 'pr_closed') && state.threadRef.conversationId) {
+    const tenantId = process.env.TEAMS_TENANT_ID ?? '';
+    const threadManager = new TeamsThreadManager({
+      botId: process.env.TEAMS_BOT_ID ?? '',
+      botPassword: process.env.TEAMS_BOT_PASSWORD ?? '',
+      channelId: state.threadRef.channelId,
+      serviceUrl: state.threadRef.serviceUrl,
+      tokenEndpoint: tenantId
+        ? `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`
+        : undefined,
+    });
+
+    const outcome = eventType === 'pr_merged' ? 'merged' : 'closed';
+    state = { ...state, status: outcome };
+
+    // Edit the root message to show strikethrough title + final status
+    await resilientTeamsCall(
+      () =>
+        threadManager.markThreadClosed(state!.threadRef, {
+          prTitle: state!.prTitle,
+          author: state!.author,
+          repositoryFullName: state!.repositoryFullName,
+          branch: state!.branch,
+          prUrl: state!.prUrl,
+        }, outcome, state!.approvedTeams, state!.requiredTeams),
+      { operation: 'markThreadClosed' },
+    );
   }
 
   // ── Step 9: Persist state ─────────────────────────────────────────────────

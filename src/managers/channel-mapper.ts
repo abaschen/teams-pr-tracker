@@ -16,6 +16,10 @@ import type { ChannelMappingConfig } from '../models/config.js';
 export interface ResolvedChannel {
   channelId: string;
   serviceUrl: string;
+  /** Tag ID to @mention when PR is ready to merge */
+  maintainersTagId?: string;
+  /** Display name of the maintainers tag */
+  maintainersTagName?: string;
 }
 
 /** Configuration for the ChannelMapper */
@@ -69,6 +73,8 @@ export class ChannelMapper {
         return {
           channelId: mapping.channelId,
           serviceUrl: mapping.serviceUrl,
+          maintainersTagId: mapping.maintainersTagId ?? config.defaultMaintainersTagId,
+          maintainersTagName: mapping.maintainersTagName ?? config.defaultMaintainersTagName,
         };
       }
     }
@@ -77,6 +83,8 @@ export class ChannelMapper {
     return {
       channelId: config.defaultChannelId,
       serviceUrl: DEFAULT_SERVICE_URL,
+      maintainersTagId: config.defaultMaintainersTagId,
+      maintainersTagName: config.defaultMaintainersTagName,
     };
   }
 

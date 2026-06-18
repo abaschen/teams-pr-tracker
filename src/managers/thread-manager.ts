@@ -166,12 +166,14 @@ export class TeamsThreadManager implements ThreadManager {
   /**
    * Updates the original thread message to reflect current approval status.
    * Edits the root message in-place to show which teams have approved.
+   * When all teams are approved, @mentions the maintainers tag.
    */
   async updateThreadStatus(
     threadRef: ThreadReference,
     pr: { prTitle: string; author: string; repositoryFullName: string; branch: string; prUrl: string },
     requiredTeams: string[],
     approvedTeams: string[],
+    maintainers?: { tagId: string; tagName: string },
   ): Promise<void> {
     const token = await this.getToken();
 
@@ -186,7 +188,7 @@ export class TeamsThreadManager implements ThreadManager {
       ? `🟢 **Ready to merge** (${approvedCount}/${totalCount})`
       : `**Required approvals (${approvedCount}/${totalCount}):**`;
 
-    const message = [
+    const lines = [
       `📋 **${pr.prTitle}**`,
       '',
       `Author: ${pr.author}`,
@@ -195,6 +197,79 @@ export class TeamsThreadManager implements ThreadManager {
       `Link: ${pr.prUrl}`,
       '',
       header,
+      '',
+      ...teamLines,
+    ];
+
+    // Build the message body — include mention entities if ready to merge
+    const entities: Record<string, unknown>[] = [];
+    if (allApproved && maintainers?.tagId) {
+      const mentionText = `<at>${maintainers.tagName}</at>`;
+      lines.push('', `👉 ${mentionText} — ready for merge`);
+      entities.push({
+        type: 'mention',
+        text: mentionText,
+        mentioned: {
+          id: maintainers.tagId,
+          name: maintainers.tagName,
+          type: 'tag',
+        },
+      });
+    }
+
+    const message = lines.join('\n');
+    const bodyPayload: Record<string, unknown> = {
+      type: 'message',
+      text: message,
+    };
+    if (entities.length > 0) {
+      bodyPayload.entities = entities;
+    }
+
+    await this.withRetry(async () => {
+      const url = `${threadRef.serviceUrl}/v3/conversations/${threadRef.conversationId}/activities/${threadRef.activityId}`;
+      const res = await this.fetchFn(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bodyPayload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Teams API error updating thread: ${res.status} ${res.statusText}`);
+      }
+    });
+  }
+
+  /**
+   * Marks a thread as merged/closed by editing the root message with strikethrough title.
+   * This makes it visually distinct from active PRs without deleting the thread.
+   */
+  async markThreadClosed(
+    threadRef: ThreadReference,
+    pr: { prTitle: string; author: string; repositoryFullName: string; branch: string; prUrl: string },
+    outcome: 'merged' | 'closed',
+    approvedTeams: string[],
+    requiredTeams: string[],
+  ): Promise<void> {
+    const token = await this.getToken();
+    const icon = outcome === 'merged' ? '✅' : '❌';
+    const outcomeLabel = outcome === 'merged' ? 'MERGED' : 'CLOSED';
+
+    const teamLines = requiredTeams.map((t) =>
+      approvedTeams.includes(t) ? `✅ ~~${t}~~` : `⏳ ${t}`
+    );
+
+    const message = [
+      `${icon} ~~${pr.prTitle}~~ — **${outcomeLabel}**`,
+      '',
+      `Author: ${pr.author}`,
+      `Repo: ${pr.repositoryFullName}`,
+      `Link: ${pr.prUrl}`,
+      '',
+      `**Final approvals (${approvedTeams.length}/${requiredTeams.length}):**`,
       '',
       ...teamLines,
     ].join('\n');
@@ -214,7 +289,7 @@ export class TeamsThreadManager implements ThreadManager {
       });
 
       if (!res.ok) {
-        throw new Error(`Teams API error updating thread: ${res.status} ${res.statusText}`);
+        throw new Error(`Teams API error closing thread: ${res.status} ${res.statusText}`);
       }
     });
   }
