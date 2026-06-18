@@ -118,7 +118,8 @@ resource "aws_lambda_function" "webhook" {
       TABLE_NAME              = "${local.name_prefix}-state"
       CHANNEL_MAPPING_PARAM   = "/${local.name_prefix}/config/channel-mappings"
       TEAMS_BOT_ID            = var.teams_bot_id
-      TEAMS_BOT_PASSWORD_ARN  = "arn:aws:secretsmanager:${var.aws_region}:*:secret:${local.name_prefix}/teams-bot-password"
+      TEAMS_BOT_PASSWORD      = var.teams_bot_password
+      TEAMS_TENANT_ID         = "bac9d2f7-1353-4efe-9c11-f4b3c2ae6445"
       GITHUB_WEBHOOK_SECRET   = "/${local.name_prefix}/secrets/webhook-secret-github"
       BITBUCKET_WEBHOOK_SECRET = "/${local.name_prefix}/secrets/webhook-secret-bitbucket"
       GITLAB_WEBHOOK_SECRET   = "/${local.name_prefix}/secrets/webhook-secret-gitlab"

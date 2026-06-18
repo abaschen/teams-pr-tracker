@@ -130,12 +130,14 @@ export async function resilientTeamsCall<T>(
       },
     );
     return result;
-  } catch {
+  } catch (error) {
     // withRetry re-throws after onExhausted — we catch here to make it non-fatal
     logger.warn(
       `Teams API call failed after retries, returning null (non-fatal)`,
       {
         operation: context.operation,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
       },
     );
     return null;

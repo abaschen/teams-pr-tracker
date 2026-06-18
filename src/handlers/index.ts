@@ -226,11 +226,15 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
   const resolvedChannel = await channelMapper.resolveChannel(repositoryFullName);
 
   if (eventType === 'pr_opened' && isNew) {
+    const tenantId = process.env.TEAMS_TENANT_ID ?? '';
     const threadManager = new TeamsThreadManager({
       botId: process.env.TEAMS_BOT_ID ?? '',
       botPassword: process.env.TEAMS_BOT_PASSWORD ?? '',
       channelId: resolvedChannel.channelId,
       serviceUrl: resolvedChannel.serviceUrl,
+      tokenEndpoint: tenantId
+        ? `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`
+        : undefined,
     });
 
     const threadRef = await resilientTeamsCall(
@@ -256,11 +260,15 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
       );
     }
   } else if (eventType === 'review_submitted' && state.threadRef.conversationId) {
+    const tenantId = process.env.TEAMS_TENANT_ID ?? '';
     const threadManager = new TeamsThreadManager({
       botId: process.env.TEAMS_BOT_ID ?? '',
       botPassword: process.env.TEAMS_BOT_PASSWORD ?? '',
       channelId: state.threadRef.channelId,
       serviceUrl: state.threadRef.serviceUrl,
+      tokenEndpoint: tenantId
+        ? `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`
+        : undefined,
     });
 
     // Post review update
