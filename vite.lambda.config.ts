@@ -14,7 +14,9 @@ export default defineConfig({
     sourcemap: true,
     minify: false,
     rolldownOptions: {
-      // Keep Node.js built-ins external
+      // Keep Node.js built-ins and AWS SDK external
+      // AWS SDK is available in the Lambda runtime and must not be bundled
+      // (bundling breaks its credential resolution chain)
       external: [
         /^node:/,
         /^crypto$/,
@@ -33,6 +35,8 @@ export default defineConfig({
         /^net$/,
         /^tls$/,
         /^child_process$/,
+        /^@aws-sdk\//,
+        /^@smithy\//,
       ],
       output: {
         // Preserve the handler export for Lambda

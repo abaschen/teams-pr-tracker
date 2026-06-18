@@ -15,16 +15,68 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from '../models/api-
 import type { Provider } from '../models/events.js';
 import { SignatureVerifierImpl } from './signature-verifier.js';
 import { getNormalizer } from '../normalizers/normalizer-factory.js';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 
 /** Supported provider identifiers */
 const SUPPORTED_PROVIDERS: ReadonlySet<string> = new Set(['github', 'bitbucket', 'gitlab']);
 
-/** Environment variable names for webhook secrets by provider */
+/** Environment variable names for webhook secrets by provider (contain SSM parameter paths) */
 const SECRET_ENV_KEYS: Record<Provider, string> = {
   github: 'GITHUB_WEBHOOK_SECRET',
   bitbucket: 'BITBUCKET_WEBHOOK_SECRET',
   gitlab: 'GITLAB_WEBHOOK_SECRET',
 };
+
+/** Cached resolved secrets to avoid repeated SSM calls */
+const resolvedSecrets: Map<Provider, string> = new Map();
+const ssmClient = new SSMClient({});
+
+/**
+ * Clears the resolved secrets cache.
+ * Exported for testing purposes.
+ */
+export function clearSecretCache(): void {
+  resolvedSecrets.clear();
+}
+
+/**
+ * Resolves the webhook secret for a provider.
+ * If the env var looks like an SSM parameter path (starts with /), fetches the value from SSM.
+ * Otherwise uses the env var value directly.
+ * Results are cached for the Lambda instance lifetime.
+ */
+async function resolveSecret(provider: Provider): Promise<string | null> {
+  if (resolvedSecrets.has(provider)) {
+    return resolvedSecrets.get(provider)!;
+  }
+
+  const envKey = SECRET_ENV_KEYS[provider];
+  const envValue = process.env[envKey];
+  if (!envValue) {
+    return null;
+  }
+
+  // If it looks like an SSM path, resolve it
+  if (envValue.startsWith('/')) {
+    try {
+      const response = await ssmClient.send(
+        new GetParameterCommand({ Name: envValue, WithDecryption: true }),
+      );
+      const secret = response.Parameter?.Value ?? null;
+      if (secret) {
+        resolvedSecrets.set(provider, secret);
+      }
+      return secret;
+    } catch (error) {
+      console.error(`Failed to resolve SSM parameter ${envValue}:`, error);
+      return null;
+    }
+  }
+
+  // Otherwise use the value directly
+  resolvedSecrets.set(provider, envValue);
+  return envValue;
+}
 
 /** Signature header names by provider */
 const SIGNATURE_HEADERS: Record<Provider, string> = {
@@ -99,11 +151,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   const rawBody = event.body;
 
-  // 3. Get webhook secret from environment
-  const secretEnvKey = SECRET_ENV_KEYS[provider];
-  const secret = process.env[secretEnvKey];
+  // 3. Get webhook secret (resolve from SSM if needed)
+  const secret = await resolveSecret(provider);
   if (!secret) {
-    console.error(`[${requestId}] Missing webhook secret env var: ${secretEnvKey}`);
+    const secretEnvKey = SECRET_ENV_KEYS[provider];
+    console.error(`[${requestId}] Missing or unresolvable webhook secret: ${secretEnvKey}`);
     return jsonResponse(401, { error: 'Webhook secret not configured' });
   }
 

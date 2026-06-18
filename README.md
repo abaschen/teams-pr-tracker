@@ -189,25 +189,27 @@ After deployment, update the placeholder SSM parameters with real secrets:
 ```bash
 # GitHub webhook secret
 aws ssm put-parameter \
-  --name "/pr-tracker-default/secrets/webhook-secret-github" \
-  --value "<your-github-webhook-secret>" \
+  --name "/pr-tracker-dev/secrets/webhook-secret-github" \
+  --value "$(openssl rand -base64 24)" \
   --type SecureString \
   --overwrite
 
 # Bitbucket webhook secret
 aws ssm put-parameter \
-  --name "/pr-tracker-default/secrets/webhook-secret-bitbucket" \
-  --value "<your-bitbucket-webhook-secret>" \
+  --name "/pr-tracker-dev/secrets/webhook-secret-bitbucket" \
+  --value "$(openssl rand -base64 24)" \
   --type SecureString \
   --overwrite
 
 # GitLab webhook token
 aws ssm put-parameter \
-  --name "/pr-tracker-default/secrets/webhook-secret-gitlab" \
-  --value "<your-gitlab-webhook-token>" \
+  --name "/pr-tracker-dev/secrets/webhook-secret-gitlab" \
+  --value "$(openssl rand -base64 24)" \
   --type SecureString \
   --overwrite
 ```
+
+> **Note:** The Lambda resolves these SSM parameters at runtime (with caching). Updating the value takes effect on the next cold start.
 
 ### 5. Configure Provider Credentials
 
@@ -215,15 +217,15 @@ Store provider API tokens in Secrets Manager:
 
 ```bash
 aws secretsmanager put-secret-value \
-  --secret-id "pr-tracker-default/github/credentials" \
+  --secret-id "pr-tracker-dev/github/credentials" \
   --secret-string '{"token":"ghp_xxxxxxxxxxxx","type":"pat"}'
 
 aws secretsmanager put-secret-value \
-  --secret-id "pr-tracker-default/bitbucket/credentials" \
+  --secret-id "pr-tracker-dev/bitbucket/credentials" \
   --secret-string '{"username":"bot-user","app_password":"xxxxxx"}'
 
 aws secretsmanager put-secret-value \
-  --secret-id "pr-tracker-default/gitlab/credentials" \
+  --secret-id "pr-tracker-dev/gitlab/credentials" \
   --secret-string '{"token":"glpat-xxxxxxxxxxxx","type":"project_access_token"}'
 ```
 
@@ -233,7 +235,7 @@ Update the SSM parameter with repository-to-Teams-channel mappings:
 
 ```bash
 aws ssm put-parameter \
-  --name "/pr-tracker-default/config/channel-mappings" \
+  --name "/pr-tracker-dev/config/channel-mappings" \
   --type String \
   --overwrite \
   --value '{
@@ -251,25 +253,58 @@ aws ssm put-parameter \
 
 ### 7. Register Webhooks
 
-Configure webhooks in each source control provider pointing to the API Gateway URL:
+Use the provider's CLI/API to register webhooks programmatically. The webhook secret must match what's stored in SSM.
+
+**GitHub (via `gh` CLI):**
+
+```bash
+# Generate and store a webhook secret
+WEBHOOK_SECRET=$(openssl rand -base64 24)
+aws ssm put-parameter \
+  --name "/pr-tracker-dev/secrets/webhook-secret-github" \
+  --value "$WEBHOOK_SECRET" \
+  --type SecureString \
+  --overwrite
+
+# Register the webhook on a repository
+API_URL=$(cd terraform && terraform output -raw api_gateway_url)
+gh api repos/<owner>/<repo>/hooks --method POST \
+  -f name=web \
+  -F active=true \
+  -f "config[url]=${API_URL}/github" \
+  -f "config[content_type]=json" \
+  -f "config[secret]=$WEBHOOK_SECRET" \
+  -f "config[insecure_ssl]=0" \
+  -f "events[]=pull_request" \
+  -f "events[]=pull_request_review"
+```
+
+**Webhook URLs by provider:**
 
 | Provider | Webhook URL | Events |
 |----------|-------------|--------|
-| GitHub | `https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/webhook/github` | Pull requests, Pull request reviews, Issue comments |
-| Bitbucket | `https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/webhook/bitbucket` | Pull request (all) |
-| GitLab | `https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/webhook/gitlab` | Merge request events, Note events |
+| GitHub | `<api_gateway_url>/github` | `pull_request`, `pull_request_review` |
+| Bitbucket | `<api_gateway_url>/bitbucket` | Pull request (all) |
+| GitLab | `<api_gateway_url>/gitlab` | Merge request events, Note events |
 
 ### 8. Install Teams App
 
-Package and install the Teams manifest:
+Package and install the Teams manifest via CLI:
 
 ```bash
 cd teams-manifest
-# Update manifest.json with your bot ID and org details
-zip -r ../pr-tracker-teams-app.zip manifest.json color.png outline.png
-```
 
-Upload the zip via Teams Admin Center or side-load for development.
+# Update manifest.json with your bot_app_id from bootstrap output
+BOT_ID=$(cd ../bootstrap && terraform output -raw bot_app_id)
+sed -i "s/\"botId\": \".*\"/\"botId\": \"$BOT_ID\"/" manifest.json
+
+# Package the manifest
+zip -r ../pr-tracker-teams-app.zip .
+
+# Upload via Teams Admin (or sideload for development)
+# For org-wide deployment (requires Teams Administrator role):
+# az teams app publish --app-path ../pr-tracker-teams-app.zip
+```
 
 ## Configuration
 

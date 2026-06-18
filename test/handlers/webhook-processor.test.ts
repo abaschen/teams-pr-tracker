@@ -28,12 +28,24 @@ vi.mock('../../src/handlers/signature-verifier.js', () => ({
   },
 }));
 
+// Mock the SSM client to prevent actual AWS calls in tests
+vi.mock('@aws-sdk/client-ssm', () => ({
+  SSMClient: class {
+    send() {
+      return Promise.resolve({ Parameter: { Value: null } });
+    }
+  },
+  GetParameterCommand: class {
+    constructor(public input: any) {}
+  },
+}));
+
 // Mock normalizer factory
 vi.mock('../../src/normalizers/normalizer-factory.js', () => ({
   getNormalizer: mockGetNormalizer,
 }));
 
-import { handler, extractProvider } from '../../src/handlers/webhook-processor.js';
+import { handler, extractProvider, clearSecretCache } from '../../src/handlers/webhook-processor.js';
 
 
 
@@ -112,8 +124,9 @@ describe('webhook-processor handler', () => {
       GITLAB_WEBHOOK_SECRET: 'gitlab-secret',
     };
 
-    // Reset mocks
+    // Reset mocks and secret cache
     vi.clearAllMocks();
+    clearSecretCache();
   });
 
   afterEach(() => {

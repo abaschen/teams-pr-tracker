@@ -116,9 +116,9 @@ resource "aws_lambda_function" "webhook" {
       CHANNEL_MAPPING_PARAM   = "/${local.name_prefix}/channel-mapping"
       TEAMS_BOT_ID            = var.teams_bot_id
       TEAMS_BOT_PASSWORD_ARN  = "arn:aws:secretsmanager:${var.aws_region}:*:secret:${local.name_prefix}/teams-bot-password"
-      GITHUB_WEBHOOK_SECRET   = "/${local.name_prefix}/github-webhook-secret"
-      BITBUCKET_WEBHOOK_SECRET = "/${local.name_prefix}/bitbucket-webhook-secret"
-      GITLAB_WEBHOOK_SECRET   = "/${local.name_prefix}/gitlab-webhook-secret"
+      GITHUB_WEBHOOK_SECRET   = "/${local.name_prefix}/secrets/webhook-secret-github"
+      BITBUCKET_WEBHOOK_SECRET = "/${local.name_prefix}/secrets/webhook-secret-bitbucket"
+      GITLAB_WEBHOOK_SECRET   = "/${local.name_prefix}/secrets/webhook-secret-gitlab"
       NODE_ENV                = local.environment
     }
   }
