@@ -1,7 +1,6 @@
 # Backend configuration uses partial config - values provided at terraform init:
 #   terraform init \
 #     -backend-config="bucket=<state-bucket-name>" \
-#     -backend-config="dynamodb_table=<lock-table-name>" \
 #     -backend-config="region=<aws-region>"
 terraform {
   required_version = ">= 1.5"
@@ -14,8 +13,9 @@ terraform {
   }
 
   backend "s3" {
-    key     = "pr-tracker/terraform.tfstate"
-    encrypt = true
+    key      = "pr-tracker/terraform.tfstate"
+    encrypt  = true
+    use_lockfile = true
   }
 }
 

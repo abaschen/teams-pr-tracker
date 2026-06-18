@@ -21,11 +21,6 @@ variable "state_bucket" {
   type        = string
 }
 
-variable "state_lock_table" {
-  description = "DynamoDB table name for Terraform state locking"
-  type        = string
-}
-
 variable "lambda_runtime" {
   description = "Lambda function runtime"
   type        = string

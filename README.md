@@ -132,7 +132,7 @@ See [bootstrap/README.md](bootstrap/README.md) for full details.
 
 ### 2. Prepare Remote State (AWS)
 
-Create an S3 bucket and DynamoDB table for Terraform state:
+Create an S3 bucket for Terraform state (S3-native locking is used automatically):
 
 ```bash
 # Create state bucket
@@ -143,14 +143,6 @@ aws s3api create-bucket \
 aws s3api put-bucket-versioning \
   --bucket my-pr-tracker-tf-state \
   --versioning-configuration Status=Enabled
-
-# Create lock table
-aws dynamodb create-table \
-  --table-name my-pr-tracker-tf-lock \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region us-east-1
 ```
 
 ### 3. Deploy AWS Infrastructure
@@ -161,20 +153,17 @@ cd terraform
 # Initialize with remote backend
 terraform init \
   -backend-config="bucket=my-pr-tracker-tf-state" \
-  -backend-config="dynamodb_table=my-pr-tracker-tf-lock" \
   -backend-config="region=us-east-1"
 
 # Plan
 terraform plan \
   -var="state_bucket=my-pr-tracker-tf-state" \
-  -var="state_lock_table=my-pr-tracker-tf-lock" \
   -var="teams_bot_id=<bot-id-from-azure>" \
   -var="teams_bot_password=<bot-password-from-azure>"
 
 # Apply
 terraform apply \
   -var="state_bucket=my-pr-tracker-tf-state" \
-  -var="state_lock_table=my-pr-tracker-tf-lock" \
   -var="teams_bot_id=<bot-id-from-azure>" \
   -var="teams_bot_password=<bot-password-from-azure>"
 ```
@@ -327,7 +316,6 @@ terraform workspace new eu-west-1
 terraform apply \
   -var="aws_region=eu-west-1" \
   -var="state_bucket=my-pr-tracker-tf-state-eu" \
-  -var="state_lock_table=my-pr-tracker-tf-lock-eu" \
   -var="teams_bot_id=<bot-id>" \
   -var="teams_bot_password=<bot-password>"
 ```
