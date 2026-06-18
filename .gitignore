@@ -162,3 +162,10 @@ bootstrap/*.tfstate.*
 bootstrap/*.tfplan
 bootstrap/.terraform.lock.hcl
 bootstrap/*.auto.tfvars
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

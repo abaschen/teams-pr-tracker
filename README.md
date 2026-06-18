@@ -2,6 +2,17 @@
 
 Serverless PR tracking system that bridges GitHub, Bitbucket, and GitLab with Microsoft Teams. When a PR is opened, the system evaluates annotation rules, creates a dedicated Teams thread, enforces sequential approval chains, and provides merge-readiness indicators — all running on AWS Lambda + DynamoDB and deployed via Terraform.
 
+## Screenshots
+
+### PR opened — all teams pending approval
+![PR Opened](docs/screenshots/pr-opened.png)
+
+### Approval in progress — partial approvals with reply trail
+![Approval in Progress](docs/screenshots/pr-approval-in-progress.png)
+
+### PR merged and PR closed/rejected
+![Merged and Closed](docs/screenshots/pr-merged-and-closed.png)
+
 ## Architecture
 
 ```
