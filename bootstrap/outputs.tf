@@ -11,7 +11,7 @@ output "bot_app_password" {
 
 output "bot_service_name" {
   description = "Azure Bot Service resource name"
-  value       = azurerm_bot_channels_registration.bot.name
+  value       = azurerm_bot_service_azure_bot.bot.name
 }
 
 output "tenant_id" {

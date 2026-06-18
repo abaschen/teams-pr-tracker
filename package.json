@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "bundle": "vite build --config vite.lambda.config.ts",
+    "package": "pnpm run bundle && node -e \"require('fs').writeFileSync('dist/lambda-bundle/package.json', JSON.stringify({type:'module'}))\" && powershell Compress-Archive -Path dist/lambda-bundle/* -DestinationPath dist/lambda.zip -Force",
     "lint": "eslint src/ test/",
     "lint:fix": "eslint src/ test/ --fix",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -37,6 +39,7 @@
     "fast-check": "^4.8.0",
     "prettier": "^3.8.4",
     "typescript": "^6.0.3",
+    "vite": "^8.0.16",
     "vitest": "^4.1.9"
   },
   "dependencies": {

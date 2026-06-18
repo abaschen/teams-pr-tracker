@@ -21,11 +21,11 @@ provider "azurerm" {
 
 data "azuread_client_config" "current" {}
 
-# Azure AD Application Registration for the Bot
+# Azure AD Application Registration for the Bot (SingleTenant)
 resource "azuread_application" "bot" {
   display_name = var.bot_display_name
 
-  sign_in_audience = "AzureADMultipleOrgs"
+  sign_in_audience = "AzureADMyOrg"
 
   api {
     requested_access_token_version = 2
@@ -49,13 +49,16 @@ resource "azuread_application_password" "bot" {
   }
 }
 
-# Azure Bot Service Registration
-resource "azurerm_bot_channels_registration" "bot" {
+# Azure Bot Service Registration (SingleTenant)
+resource "azurerm_bot_service_azure_bot" "bot" {
   name                = replace(lower(var.bot_display_name), " ", "-")
-  location            = var.azure_location
+  location            = "global"
   resource_group_name = azurerm_resource_group.bot.name
   sku                 = var.sku
   microsoft_app_id    = azuread_application.bot.client_id
+  microsoft_app_type  = "SingleTenant"
+
+  microsoft_app_tenant_id = data.azuread_client_config.current.tenant_id
 
   endpoint = var.messaging_endpoint
 
@@ -76,7 +79,7 @@ resource "azurerm_resource_group" "bot" {
 
 # Enable Microsoft Teams Channel on the Bot
 resource "azurerm_bot_channel_ms_teams" "teams" {
-  bot_name            = azurerm_bot_channels_registration.bot.name
-  location            = azurerm_bot_channels_registration.bot.location
+  bot_name            = azurerm_bot_service_azure_bot.bot.name
+  location            = azurerm_bot_service_azure_bot.bot.location
   resource_group_name = azurerm_resource_group.bot.name
 }
