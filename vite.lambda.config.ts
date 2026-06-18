@@ -13,7 +13,7 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     minify: false,
-    rollupOptions: {
+    rolldownOptions: {
       // Keep Node.js built-ins external
       external: [
         /^node:/,
@@ -37,7 +37,7 @@ export default defineConfig({
       output: {
         // Preserve the handler export for Lambda
         exports: 'named',
-        inlineDynamicImports: true,
+        codeSplitting: false,
       },
     },
   },
