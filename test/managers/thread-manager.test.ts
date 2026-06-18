@@ -337,9 +337,9 @@ describe('TeamsThreadManager', () => {
       await manager.closeThread(sampleThreadRef, finalStatus);
 
       const body = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(body.text).toContain('Merged');
+      expect(body.text).toContain('MERGED');
       expect(body.text).toContain('developer1');
-      expect(body.text).toContain('Security, Architecture');
+      expect(body.text).toContain('Security');
       expect(body.text).toContain('✅');
       expect(body.replyToId).toBe('activity-456');
     });
@@ -359,13 +359,13 @@ describe('TeamsThreadManager', () => {
       await manager.closeThread(sampleThreadRef, finalStatus);
 
       const body = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(body.text).toContain('Closed');
+      expect(body.text).toContain('CLOSED');
       expect(body.text).toContain('author1');
       expect(body.text).toContain('❌');
       expect(body.text).toContain('Architecture');
     });
 
-    it('should display "None" when no teams are approved or pending', async () => {
+    it('should display empty teams when none are approved or pending', async () => {
       mockFetch.mockResolvedValueOnce(createTokenResponse());
       mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
 
@@ -380,8 +380,8 @@ describe('TeamsThreadManager', () => {
       await manager.closeThread(sampleThreadRef, finalStatus);
 
       const body = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(body.text).toContain('**Approved:** None');
-      expect(body.text).toContain('**Pending:** None');
+      expect(body.text).toContain('CLOSED');
+      expect(body.text).toContain('0/0');
     });
   });
 
@@ -457,10 +457,10 @@ describe('TeamsThreadManager', () => {
       const message = manager.composeCloseMessage(status);
 
       expect(message).toContain('✅');
-      expect(message).toContain('Merged');
+      expect(message).toContain('MERGED');
       expect(message).toContain('dev1');
-      expect(message).toContain('Team A, Team B');
-      expect(message).toContain('**Pending:** None');
+      expect(message).toContain('Team A');
+      expect(message).toContain('Team B');
     });
 
     it('should format closed outcome with cross mark', () => {
@@ -475,9 +475,8 @@ describe('TeamsThreadManager', () => {
       const message = manager.composeCloseMessage(status);
 
       expect(message).toContain('❌');
-      expect(message).toContain('Closed');
+      expect(message).toContain('CLOSED');
       expect(message).toContain('dev2');
-      expect(message).toContain('**Approved:** None');
       expect(message).toContain('Team C');
     });
   });

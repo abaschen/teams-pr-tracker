@@ -12,6 +12,8 @@ import type { NormalizedPREvent } from '../models/events.js';
 import type { ThreadReference, ThreadUpdate, FinalStatus } from '../models/state.js';
 import type { ValidationTeamConfig } from '../models/rules.js';
 import type { ThreadManager } from '../models/interfaces.js';
+import type { MessageTemplates } from '../models/config.js';
+import { DEFAULT_TEMPLATES, renderTemplate } from '../models/config.js';
 
 /** Configuration for the ThreadManager */
 export interface ThreadManagerConfig {
@@ -27,6 +29,8 @@ export interface ThreadManagerConfig {
   fetchFn?: typeof globalThis.fetch;
   /** Microsoft login token endpoint override (useful for testing) */
   tokenEndpoint?: string;
+  /** Custom message templates (overrides defaults) */
+  templates?: MessageTemplates;
 }
 
 /** Bot Framework authentication token response */
@@ -77,6 +81,7 @@ export class TeamsThreadManager implements ThreadManager {
   private readonly serviceUrl: string;
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly tokenEndpoint: string;
+  private readonly templates: Required<MessageTemplates>;
   private cachedToken: { token: string; expiresAt: number } | null = null;
 
   constructor(config: ThreadManagerConfig) {
@@ -86,6 +91,7 @@ export class TeamsThreadManager implements ThreadManager {
     this.serviceUrl = config.serviceUrl ?? DEFAULT_SERVICE_URL;
     this.fetchFn = config.fetchFn ?? globalThis.fetch;
     this.tokenEndpoint = config.tokenEndpoint ?? DEFAULT_TOKEN_ENDPOINT;
+    this.templates = { ...DEFAULT_TEMPLATES, ...config.templates };
   }
 
   /**
@@ -167,7 +173,7 @@ export class TeamsThreadManager implements ThreadManager {
 
   /**
    * Updates the original thread message to reflect current approval status.
-   * Edits the root message in-place to show which teams have approved.
+   * Uses the 'updated' or 'readyToMerge' template depending on state.
    * When all teams are approved, @mentions the maintainers tag.
    */
   async updateThreadStatus(
@@ -181,33 +187,39 @@ export class TeamsThreadManager implements ThreadManager {
 
     const teamLines = requiredTeams.map((t) =>
       approvedTeams.includes(t) ? `✅ ${t}` : `⏳ ${t}`
-    );
+    ).join('  \n');
 
     const approvedCount = approvedTeams.length;
     const totalCount = requiredTeams.length;
     const allApproved = approvedCount === totalCount && totalCount > 0;
-    const header = allApproved
-      ? `🟢 **Ready to merge** (${approvedCount}/${totalCount})`
-      : `**Required approvals (${approvedCount}/${totalCount}):**`;
+    const [org, ...repoParts] = pr.repositoryFullName.split('/');
 
-    const lines = [
-      `📋 **${pr.prTitle}**`,
-      '',
-      `Author: ${pr.author}  `,
-      `Repo: ${pr.repositoryFullName}  `,
-      `Branch: \`${pr.branch}\`  `,
-      `Link: ${pr.prUrl}`,
-      '',
-      header,
-      '',
-      teamLines.join('  \n'),
-    ];
+    const templateVars: Record<string, string> = {
+      title: pr.prTitle,
+      author: pr.author,
+      repo: pr.repositoryFullName,
+      org: org ?? '',
+      repoName: repoParts.join('/') || '',
+      branch: pr.branch,
+      baseBranch: '',
+      url: pr.prUrl,
+      provider: '',
+      prNumber: '',
+      teams: teamLines,
+      approvedCount: String(approvedCount),
+      totalCount: String(totalCount),
+      reviewers: '',
+      status: allApproved ? 'ready' : 'open',
+    };
+
+    const template = allApproved ? this.templates.readyToMerge : this.templates.updated;
+    let message = renderTemplate(template, templateVars);
 
     // Build the message body — include mention entities if ready to merge
     const entities: Record<string, unknown>[] = [];
     if (allApproved && maintainers?.tagId) {
       const mentionText = `<at>${maintainers.tagName}</at>`;
-      lines.push('', `👉 ${mentionText} — ready for merge`);
+      message += `\n\n👉 ${mentionText} — ready for merge`;
       entities.push({
         type: 'mention',
         text: mentionText,
@@ -219,7 +231,6 @@ export class TeamsThreadManager implements ThreadManager {
       });
     }
 
-    const message = lines.join('\n');
     const bodyPayload: Record<string, unknown> = {
       type: 'message',
       textFormat: 'markdown',
@@ -258,24 +269,33 @@ export class TeamsThreadManager implements ThreadManager {
     requiredTeams: string[],
   ): Promise<void> {
     const token = await this.getToken();
-    const icon = outcome === 'merged' ? '✅' : '❌';
+    const outcomeIcon = outcome === 'merged' ? '✅' : '❌';
     const outcomeLabel = outcome === 'merged' ? 'MERGED' : 'CLOSED';
+    const [org, ...repoParts] = pr.repositoryFullName.split('/');
 
     const teamLines = requiredTeams.map((t) =>
       approvedTeams.includes(t) ? `✅ ${t}` : `⏳ ${t}`
-    );
+    ).join('  \n');
 
-    const message = [
-      `${icon} **[${outcomeLabel}]** ${pr.prTitle}`,
-      '',
-      `Author: ${pr.author}  `,
-      `Repo: ${pr.repositoryFullName}  `,
-      `Link: ${pr.prUrl}`,
-      '',
-      `**Final approvals (${approvedTeams.length}/${requiredTeams.length}):**`,
-      '',
-      teamLines.join('  \n'),
-    ].join('\n');
+    const message = renderTemplate(this.templates.closed, {
+      title: pr.prTitle,
+      author: pr.author,
+      repo: pr.repositoryFullName,
+      org: org ?? '',
+      repoName: repoParts.join('/') || '',
+      branch: pr.branch,
+      baseBranch: '',
+      url: pr.prUrl,
+      provider: '',
+      prNumber: '',
+      teams: teamLines,
+      approvedCount: String(approvedTeams.length),
+      totalCount: String(requiredTeams.length),
+      reviewers: '',
+      status: outcome,
+      outcome: outcomeLabel,
+      outcomeIcon,
+    });
 
     await this.withRetry(async () => {
       const url = `${threadRef.serviceUrl}/v3/conversations/${threadRef.conversationId}/activities/${threadRef.activityId}`;
@@ -350,57 +370,79 @@ export class TeamsThreadManager implements ThreadManager {
   }
 
   /**
-   * Composes the initial thread message with PR metadata and team statuses.
+   * Composes the initial thread message using the 'opened' template.
    */
   composeCreateMessage(pr: NormalizedPREvent, teams: ValidationTeamConfig[]): string {
-    const teamLines = teams.map((t) => `⏳ ${t.teamName}`);
+    const teamLines = teams.map((t) => `⏳ ${t.teamName}`).join('  \n');
+    const reviewers = teams.flatMap((t) => t.reviewers).join(', ');
+    const [org, ...repoParts] = pr.repositoryFullName.split('/');
 
-    return [
-      `📋 **${pr.prTitle}**`,
-      '',
-      `Author: ${pr.author}  `,
-      `Repo: ${pr.repositoryFullName}  `,
-      `Branch: \`${pr.branch}\` → \`${pr.baseBranch}\`  `,
-      `Link: ${pr.prUrl}`,
-      '',
-      `**Required approvals (0/${teams.length}):**`,
-      '',
-      teamLines.join('  \n'),
-    ].join('\n');
+    return renderTemplate(this.templates.opened, {
+      title: pr.prTitle,
+      author: pr.author,
+      repo: pr.repositoryFullName,
+      org: org ?? '',
+      repoName: repoParts.join('/') || '',
+      branch: pr.branch,
+      baseBranch: pr.baseBranch,
+      url: pr.prUrl,
+      provider: pr.provider,
+      prNumber: pr.prId,
+      teams: teamLines,
+      approvedCount: '0',
+      totalCount: String(teams.length),
+      reviewers,
+      status: 'open',
+    });
   }
 
   /**
-   * Composes an update message showing team, user, and action — no @mentions.
+   * Composes a review reply message using the 'reviewReply' template.
    */
   composeUpdateMessage(update: ThreadUpdate): string {
     const icon = update.summary.includes('approved') ? '✅'
       : update.summary.includes('changes_requested') ? '🔄'
       : '💬';
-    return `${icon} **${update.actor}** — ${update.summary}`;
+
+    return renderTemplate(this.templates.reviewReply, {
+      icon,
+      actor: update.actor,
+      action: update.summary,
+      eventType: update.eventType,
+      timestamp: update.timestamp,
+    });
   }
 
   /**
-   * Composes a final status message for PR merge/close.
+   * Composes a final status message using the 'closed' template.
    */
   composeCloseMessage(finalStatus: FinalStatus): string {
-    const icon = finalStatus.outcome === 'merged' ? '✅' : '❌';
-    const outcomeLabel = finalStatus.outcome === 'merged' ? 'Merged' : 'Closed';
+    const outcomeIcon = finalStatus.outcome === 'merged' ? '✅' : '❌';
+    const outcome = finalStatus.outcome === 'merged' ? 'MERGED' : 'CLOSED';
 
-    const approved =
-      finalStatus.approvedTeams.length > 0
-        ? finalStatus.approvedTeams.join(', ')
-        : 'None';
-    const pending =
-      finalStatus.pendingTeams.length > 0
-        ? finalStatus.pendingTeams.join(', ')
-        : 'None';
+    const approved = finalStatus.approvedTeams.map((t) => `✅ ${t}`).join('  \n');
+    const pending = finalStatus.pendingTeams.map((t) => `⏳ ${t}`).join('  \n');
+    const teams = [approved, pending].filter(Boolean).join('  \n');
 
-    return [
-      `${icon} **PR ${outcomeLabel}** by ${finalStatus.actor}`,
-      '',
-      `**Approved:** ${approved}`,
-      `**Pending:** ${pending}`,
-    ].join('\n');
+    return renderTemplate(this.templates.closed, {
+      title: '',
+      author: finalStatus.actor,
+      repo: '',
+      org: '',
+      repoName: '',
+      branch: '',
+      baseBranch: '',
+      url: '',
+      provider: '',
+      prNumber: '',
+      teams,
+      approvedCount: String(finalStatus.approvedTeams.length),
+      totalCount: String(finalStatus.approvedTeams.length + finalStatus.pendingTeams.length),
+      reviewers: '',
+      status: finalStatus.outcome,
+      outcome,
+      outcomeIcon,
+    });
   }
 
   /**
