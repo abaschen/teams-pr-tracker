@@ -154,3 +154,11 @@ terraform/*.tfstate.*
 terraform/*.tfplan
 terraform/.terraform.lock.hcl
 terraform/*.auto.tfvars
+
+# Bootstrap (Azure)
+bootstrap/.terraform/
+bootstrap/*.tfstate
+bootstrap/*.tfstate.*
+bootstrap/*.tfplan
+bootstrap/.terraform.lock.hcl
+bootstrap/*.auto.tfvars
