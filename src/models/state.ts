@@ -43,6 +43,9 @@ export interface PRStateItem {
   branch: string;
   status: PRStatus;
 
+  // Urgent flag
+  urgent?: boolean;
+
   // Approval tracking
   requiredTeams: string[];
   approvedTeams: string[];

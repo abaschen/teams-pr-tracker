@@ -89,6 +89,7 @@ function createInitialState(event: NormalizedPREvent): PRStateItem {
     author: event.author,
     branch: event.branch,
     status: 'open',
+    urgent: event.urgent,
     requiredTeams: [],
     approvedTeams: [],
     approvalChains: [],
@@ -225,6 +226,11 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
   // ── Step 7: Teams thread operations (non-fatal) ───────────────────────────
   const resolvedChannel = await channelMapper.resolveChannel(repositoryFullName);
 
+  // Detect urgent flag from labels
+  const isUrgent = (event.labels ?? []).some((label) =>
+    resolvedChannel.urgentLabels.some((u) => label.toLowerCase() === u.toLowerCase()),
+  );
+
   if (eventType === 'pr_opened' && isNew) {
     const tenantId = process.env.TEAMS_TENANT_ID ?? '';
     const threadManager = new TeamsThreadManager({
@@ -235,7 +241,13 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
       tokenEndpoint: tenantId
         ? `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`
         : undefined,
+      templates: resolvedChannel.templates,
     });
+
+    // Tag the event as urgent for template rendering
+    if (isUrgent) {
+      event.urgent = true;
+    }
 
     const threadRef = await resilientTeamsCall(
       () => threadManager.createThread(event, evaluationResult.requiredTeams),
@@ -269,6 +281,7 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
       tokenEndpoint: tenantId
         ? `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`
         : undefined,
+      templates: resolvedChannel.templates,
     });
 
     // Post review update
@@ -292,6 +305,7 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
           repositoryFullName: state!.repositoryFullName,
           branch: state!.branch,
           prUrl: state!.prUrl,
+          urgent: state!.urgent,
         }, state!.requiredTeams, state!.approvedTeams,
         resolvedChannel.maintainersTagId ? { tagId: resolvedChannel.maintainersTagId, tagName: resolvedChannel.maintainersTagName ?? 'Maintainers' } : undefined),
       { operation: 'updateThreadStatus' },
@@ -350,6 +364,7 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
       tokenEndpoint: tenantId
         ? `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`
         : undefined,
+      templates: resolvedChannel.templates,
     });
 
     const outcome = eventType === 'pr_merged' ? 'merged' : 'closed';

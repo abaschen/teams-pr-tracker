@@ -45,8 +45,7 @@ describe('ChannelMapper', () => {
 
       const result = await mapper.resolveChannel('org/frontend-app');
 
-      expect(result).toEqual({
-        channelId: 'channel-frontend',
+      expect(result).toMatchObject({ channelId: 'channel-frontend',
         serviceUrl: 'https://smba.trafficmanager.net/teams/frontend',
       });
     });
@@ -58,8 +57,7 @@ describe('ChannelMapper', () => {
 
       const result = await mapper.resolveChannel('org/backend-api');
 
-      expect(result).toEqual({
-        channelId: 'channel-backend',
+      expect(result).toMatchObject({ channelId: 'channel-backend',
         serviceUrl: 'https://smba.trafficmanager.net/teams/backend',
       });
     });
@@ -71,8 +69,7 @@ describe('ChannelMapper', () => {
 
       const result = await mapper.resolveChannel('data-team/analytics/pipeline');
 
-      expect(result).toEqual({
-        channelId: 'channel-data',
+      expect(result).toMatchObject({ channelId: 'channel-data',
         serviceUrl: 'https://smba.trafficmanager.net/teams/data',
       });
     });
@@ -84,8 +81,7 @@ describe('ChannelMapper', () => {
 
       const result = await mapper.resolveChannel('unknown-org/some-repo');
 
-      expect(result).toEqual({
-        channelId: 'channel-default',
+      expect(result).toMatchObject({ channelId: 'channel-default',
         serviceUrl: 'https://smba.trafficmanager.net/teams',
       });
     });
@@ -114,8 +110,7 @@ describe('ChannelMapper', () => {
       // The first pattern matches, so it should win
       const result = await mapper.resolveChannel('org/specific-repo');
 
-      expect(result).toEqual({
-        channelId: 'channel-org-all',
+      expect(result).toMatchObject({ channelId: 'channel-org-all',
         serviceUrl: 'https://smba.trafficmanager.net/teams/org',
       });
     });
@@ -226,3 +221,4 @@ describe('ChannelMapper', () => {
     });
   });
 });
+

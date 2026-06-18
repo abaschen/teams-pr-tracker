@@ -24,6 +24,8 @@ export interface ChannelMappingConfig {
   defaultMaintainersTagName?: string;
   /** Custom message templates (overrides defaults) */
   templates?: MessageTemplates;
+  /** Labels that mark a PR as urgent (case-insensitive, default: ["urgent", "hotfix", "critical"]) */
+  urgentLabels?: string[];
 }
 
 /** Retry configuration for external API calls */
@@ -62,6 +64,7 @@ export interface RetryConfig {
  * | `{{status}}` | Current PR status | "open" |
  * | `{{outcome}}` | Final outcome (merged/closed) | "MERGED" |
  * | `{{outcomeIcon}}` | Outcome emoji | "✅" or "❌" |
+ * | `{{urgent}}` | Urgent flag prefix (empty if not urgent) | "🚨 URGENT " |
  */
 export interface MessageTemplates {
   /** Template for initial PR opened message */
@@ -79,7 +82,7 @@ export interface MessageTemplates {
 /** Default message templates */
 export const DEFAULT_TEMPLATES: Required<MessageTemplates> = {
   opened: [
-    '📋 **{{title}}**',
+    '{{urgent}}📋 **{{title}}**',
     '',
     'Author: {{author}}  ',
     'Repo: {{repo}}  ',
@@ -92,7 +95,7 @@ export const DEFAULT_TEMPLATES: Required<MessageTemplates> = {
   ].join('\n'),
 
   updated: [
-    '📋 **{{title}}**',
+    '{{urgent}}📋 **{{title}}**',
     '',
     'Author: {{author}}  ',
     'Repo: {{repo}}  ',
@@ -107,7 +110,7 @@ export const DEFAULT_TEMPLATES: Required<MessageTemplates> = {
   reviewReply: '{{icon}} **{{actor}}** — {{action}}',
 
   readyToMerge: [
-    '📋 **{{title}}**',
+    '{{urgent}}📋 **{{title}}**',
     '',
     'Author: {{author}}  ',
     'Repo: {{repo}}  ',

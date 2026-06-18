@@ -10,7 +10,7 @@
 
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import picomatch from 'picomatch';
-import type { ChannelMappingConfig } from '../models/config.js';
+import type { ChannelMappingConfig, MessageTemplates } from '../models/config.js';
 
 /** Result of resolving a channel for a repository */
 export interface ResolvedChannel {
@@ -20,6 +20,10 @@ export interface ResolvedChannel {
   maintainersTagId?: string;
   /** Display name of the maintainers tag */
   maintainersTagName?: string;
+  /** Labels that mark a PR as urgent */
+  urgentLabels: string[];
+  /** Custom message templates */
+  templates?: MessageTemplates;
 }
 
 /** Configuration for the ChannelMapper */
@@ -32,6 +36,9 @@ export interface ChannelMapperConfig {
 
 /** Default SSM parameter name for channel mappings */
 const DEFAULT_PARAMETER_NAME = '/pr-tracker/channel-mappings';
+
+/** Default labels that mark a PR as urgent */
+const DEFAULT_URGENT_LABELS = ['urgent', 'hotfix', 'critical', 'emergency'];
 
 /** Default service URL used when the default channel is selected */
 const DEFAULT_SERVICE_URL = 'https://smba.trafficmanager.net/teams';
@@ -75,6 +82,8 @@ export class ChannelMapper {
           serviceUrl: mapping.serviceUrl,
           maintainersTagId: mapping.maintainersTagId ?? config.defaultMaintainersTagId,
           maintainersTagName: mapping.maintainersTagName ?? config.defaultMaintainersTagName,
+          urgentLabels: config.urgentLabels ?? DEFAULT_URGENT_LABELS,
+          templates: config.templates,
         };
       }
     }
@@ -85,6 +94,8 @@ export class ChannelMapper {
       serviceUrl: DEFAULT_SERVICE_URL,
       maintainersTagId: config.defaultMaintainersTagId,
       maintainersTagName: config.defaultMaintainersTagName,
+      urgentLabels: config.urgentLabels ?? DEFAULT_URGENT_LABELS,
+      templates: config.templates,
     };
   }
 

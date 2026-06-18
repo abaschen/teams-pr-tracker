@@ -178,7 +178,7 @@ export class TeamsThreadManager implements ThreadManager {
    */
   async updateThreadStatus(
     threadRef: ThreadReference,
-    pr: { prTitle: string; author: string; repositoryFullName: string; branch: string; prUrl: string },
+    pr: { prTitle: string; author: string; repositoryFullName: string; branch: string; prUrl: string; urgent?: boolean },
     requiredTeams: string[],
     approvedTeams: string[],
     maintainers?: { tagId: string; tagName: string },
@@ -210,6 +210,7 @@ export class TeamsThreadManager implements ThreadManager {
       totalCount: String(totalCount),
       reviewers: '',
       status: allApproved ? 'ready' : 'open',
+      urgent: pr.urgent ? '🚨 **URGENT** ' : '',
     };
 
     const template = allApproved ? this.templates.readyToMerge : this.templates.updated;
@@ -393,6 +394,7 @@ export class TeamsThreadManager implements ThreadManager {
       totalCount: String(teams.length),
       reviewers,
       status: 'open',
+      urgent: pr.urgent ? '🚨 **URGENT** ' : '',
     });
   }
 

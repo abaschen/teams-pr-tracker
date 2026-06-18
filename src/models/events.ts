@@ -40,6 +40,8 @@ export interface NormalizedPREvent {
   baseBranch: string;
   changedFiles?: string[];
   labels?: string[];
+  /** PR is flagged as urgent (detected from labels matching urgentLabels pattern) */
+  urgent?: boolean;
   reviewerAction?: ReviewerAction;
   timestamp: string;
 }
