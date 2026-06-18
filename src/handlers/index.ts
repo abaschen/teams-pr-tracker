@@ -201,7 +201,11 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
     } catch (error) {
       if (
         error instanceof Error &&
-        (error.name === 'CredentialNotFoundError' || error.message.includes('No credentials found'))
+        (error.name === 'CredentialNotFoundError' ||
+         error.message.includes('No credentials found') ||
+         error.message.includes('Invalid credential') ||
+         error.name === 'AccessDeniedException' ||
+         error.message.includes('is not authorized'))
       ) {
         credentialError = new CredentialNotFoundError(
           error.message,

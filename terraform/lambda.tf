@@ -71,7 +71,10 @@ resource "aws_iam_policy" "lambda_custom" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:${local.name_prefix}/*"
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:${local.name_prefix}/*",
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:pr-tracker/*"
+        ]
       },
       {
         Sid    = "KMSDecrypt"
@@ -113,7 +116,7 @@ resource "aws_lambda_function" "webhook" {
   environment {
     variables = {
       TABLE_NAME              = "${local.name_prefix}-state"
-      CHANNEL_MAPPING_PARAM   = "/${local.name_prefix}/channel-mapping"
+      CHANNEL_MAPPING_PARAM   = "/${local.name_prefix}/config/channel-mappings"
       TEAMS_BOT_ID            = var.teams_bot_id
       TEAMS_BOT_PASSWORD_ARN  = "arn:aws:secretsmanager:${var.aws_region}:*:secret:${local.name_prefix}/teams-bot-password"
       GITHUB_WEBHOOK_SECRET   = "/${local.name_prefix}/secrets/webhook-secret-github"

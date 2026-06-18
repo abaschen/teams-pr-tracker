@@ -191,8 +191,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return jsonResponse(200, { message: 'Event acknowledged, no action required' });
   }
 
-  // 8. For recognized events, return success
-  // Full pipeline (load state → process → persist state → side effects) will be wired in task 12.1
+  // 8. Run the full pipeline (non-blocking errors are handled internally)
+  try {
+    const { processEvent } = await import('./index.js');
+    await processEvent(normalizedEvent);
+  } catch (pipelineError) {
+    // Pipeline errors are non-fatal — the webhook was valid, so return 200
+    // to prevent the provider from retrying. Log for observability.
+    console.error(`[${requestId}] Pipeline error (non-fatal):`, pipelineError);
+  }
+
   return jsonResponse(200, {
     message: 'Webhook processed successfully',
     provider,
