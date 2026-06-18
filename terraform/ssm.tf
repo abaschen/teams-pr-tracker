@@ -88,3 +88,20 @@ resource "aws_ssm_parameter" "webhook_secret_gitlab" {
     ignore_changes = [value]
   }
 }
+
+# GitHub App private key (PEM-encoded)
+resource "aws_ssm_parameter" "github_app_private_key" {
+  name        = "/${local.name_prefix}/secrets/github-app-private-key"
+  description = "GitHub App RSA private key for installation token authentication"
+  type        = "SecureString"
+  key_id      = aws_kms_key.credential_encryption.key_id
+  value       = "placeholder-replace-after-github-app-creation"
+
+  tags = {
+    Name = "${local.name_prefix}-github-app-private-key"
+  }
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}

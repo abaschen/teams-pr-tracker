@@ -61,3 +61,9 @@ variable "vpc_security_group_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "github_app_id" {
+  description = "GitHub App ID (numeric) for installation token authentication"
+  type        = string
+  default     = ""
+}
