@@ -114,6 +114,7 @@ export class TeamsThreadManager implements ThreadManager {
           channelData: { channel: { id: this.channelId } },
           activity: {
             type: 'message',
+            textFormat: 'markdown',
             text: message,
           },
         }),
@@ -152,6 +153,7 @@ export class TeamsThreadManager implements ThreadManager {
         },
         body: JSON.stringify({
           type: 'message',
+          textFormat: 'markdown',
           text: message,
           replyToId: threadRef.activityId,
         }),
@@ -178,7 +180,7 @@ export class TeamsThreadManager implements ThreadManager {
     const token = await this.getToken();
 
     const teamLines = requiredTeams.map((t) =>
-      approvedTeams.includes(t) ? `✅ ~~${t}~~` : `⏳ ${t}`
+      approvedTeams.includes(t) ? `✅ ${t}` : `⏳ ${t}`
     );
 
     const approvedCount = approvedTeams.length;
@@ -191,14 +193,14 @@ export class TeamsThreadManager implements ThreadManager {
     const lines = [
       `📋 **${pr.prTitle}**`,
       '',
-      `Author: ${pr.author}`,
-      `Repo: ${pr.repositoryFullName}`,
-      `Branch: \`${pr.branch}\``,
+      `Author: ${pr.author}  `,
+      `Repo: ${pr.repositoryFullName}  `,
+      `Branch: \`${pr.branch}\`  `,
       `Link: ${pr.prUrl}`,
       '',
       header,
       '',
-      ...teamLines,
+      teamLines.join('  \n'),
     ];
 
     // Build the message body — include mention entities if ready to merge
@@ -220,6 +222,7 @@ export class TeamsThreadManager implements ThreadManager {
     const message = lines.join('\n');
     const bodyPayload: Record<string, unknown> = {
       type: 'message',
+      textFormat: 'markdown',
       text: message,
     };
     if (entities.length > 0) {
@@ -259,19 +262,19 @@ export class TeamsThreadManager implements ThreadManager {
     const outcomeLabel = outcome === 'merged' ? 'MERGED' : 'CLOSED';
 
     const teamLines = requiredTeams.map((t) =>
-      approvedTeams.includes(t) ? `✅ ~~${t}~~` : `⏳ ${t}`
+      approvedTeams.includes(t) ? `✅ ${t}` : `⏳ ${t}`
     );
 
     const message = [
-      `${icon} ~~${pr.prTitle}~~ — **${outcomeLabel}**`,
+      `${icon} **[${outcomeLabel}]** ${pr.prTitle}`,
       '',
-      `Author: ${pr.author}`,
-      `Repo: ${pr.repositoryFullName}`,
+      `Author: ${pr.author}  `,
+      `Repo: ${pr.repositoryFullName}  `,
       `Link: ${pr.prUrl}`,
       '',
       `**Final approvals (${approvedTeams.length}/${requiredTeams.length}):**`,
       '',
-      ...teamLines,
+      teamLines.join('  \n'),
     ].join('\n');
 
     await this.withRetry(async () => {
@@ -284,6 +287,7 @@ export class TeamsThreadManager implements ThreadManager {
         },
         body: JSON.stringify({
           type: 'message',
+          textFormat: 'markdown',
           text: message,
         }),
       });
@@ -333,6 +337,7 @@ export class TeamsThreadManager implements ThreadManager {
         },
         body: JSON.stringify({
           type: 'message',
+          textFormat: 'markdown',
           text: message,
           replyToId: threadRef.activityId,
         }),
@@ -353,14 +358,14 @@ export class TeamsThreadManager implements ThreadManager {
     return [
       `📋 **${pr.prTitle}**`,
       '',
-      `Author: ${pr.author}`,
-      `Repo: ${pr.repositoryFullName}`,
-      `Branch: \`${pr.branch}\` → \`${pr.baseBranch}\``,
+      `Author: ${pr.author}  `,
+      `Repo: ${pr.repositoryFullName}  `,
+      `Branch: \`${pr.branch}\` → \`${pr.baseBranch}\`  `,
       `Link: ${pr.prUrl}`,
       '',
       `**Required approvals (0/${teams.length}):**`,
       '',
-      ...teamLines,
+      teamLines.join('  \n'),
     ].join('\n');
   }
 
