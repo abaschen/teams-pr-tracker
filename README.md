@@ -51,6 +51,7 @@ Serverless PR tracking system that bridges GitHub, Bitbucket, and GitLab with Mi
 - Node.js 22+ (LTS)
 - pnpm 10+
 - AWS CLI v2 configured with appropriate credentials
+- Azure CLI (`az`) logged in (for bootstrap)
 - Terraform >= 1.5
 - Azure AD app registration (for Teams Bot)
 
@@ -60,8 +61,11 @@ Serverless PR tracking system that bridges GitHub, Bitbucket, and GitLab with Mi
 # Install dependencies
 pnpm install
 
-# Build
+# Build (type-check)
 pnpm build
+
+# Bundle for Lambda deployment
+pnpm run package
 
 # Run tests
 pnpm test
@@ -96,7 +100,8 @@ test/
 
 terraform/             # AWS infrastructure (Lambda, DynamoDB, API GW, KMS, SSM, Secrets)
 teams-manifest/        # Microsoft Teams app manifest
-bootstrap/             # Azure resource provisioning (Bot registration, subscription setup)
+bootstrap/             # Azure resource provisioning (Bot registration, Teams channel)
+vite.lambda.config.ts  # Vite bundler config for Lambda packaging
 ```
 
 ## Deployment
@@ -105,7 +110,7 @@ bootstrap/             # Azure resource provisioning (Bot registration, subscrip
 
 > In a corporate environment these resources are typically pre-provisioned by the platform team. Use the bootstrap only for greenfield setups or development environments.
 
-The `bootstrap/` folder contains Terraform configuration to create the Azure Bot registration and Teams app:
+The `bootstrap/` folder contains Terraform configuration to create the Azure Bot registration (SingleTenant) and Teams channel:
 
 ```bash
 cd bootstrap
@@ -114,19 +119,21 @@ cd bootstrap
 terraform init
 
 # Review the plan
-terraform plan -var="bot_display_name=PR Tracker" \
-               -var="teams_app_name=PR Tracker"
+terraform plan \
+  -var="bot_display_name=PR Tracker" \
+  -var="messaging_endpoint=https://<your-api-gw-url>/webhook/teams"
 
 # Apply
-terraform apply -var="bot_display_name=PR Tracker" \
-                -var="teams_app_name=PR Tracker"
+terraform apply \
+  -var="bot_display_name=PR Tracker" \
+  -var="messaging_endpoint=https://<your-api-gw-url>/webhook/teams"
 ```
 
 This creates:
-- Azure AD app registration (client ID + secret)
-- Azure Bot Service channel registration
+- Azure AD app registration (SingleTenant, client ID + secret)
+- Azure Bot Service (`azurerm_bot_service_azure_bot`, SingleTenant)
 - Microsoft Teams channel connection
-- Outputs the `bot_id` and `bot_password` needed for the AWS deployment
+- Outputs the `bot_app_id` and `bot_app_password` needed for the AWS deployment
 
 See [bootstrap/README.md](bootstrap/README.md) for full details.
 
@@ -155,18 +162,25 @@ terraform init \
   -backend-config="bucket=my-pr-tracker-tf-state" \
   -backend-config="region=us-east-1"
 
+# Package the Lambda bundle
+cd .. && pnpm run package && cd terraform
+
 # Plan
 terraform plan \
   -var="state_bucket=my-pr-tracker-tf-state" \
-  -var="teams_bot_id=<bot-id-from-azure>" \
-  -var="teams_bot_password=<bot-password-from-azure>"
+  -var="teams_bot_id=<bot_app_id-from-azure>" \
+  -var="teams_bot_password=<bot_app_password-from-azure>" \
+  -var="environment=dev"
 
 # Apply
 terraform apply \
   -var="state_bucket=my-pr-tracker-tf-state" \
-  -var="teams_bot_id=<bot-id-from-azure>" \
-  -var="teams_bot_password=<bot-password-from-azure>"
+  -var="teams_bot_id=<bot_app_id-from-azure>" \
+  -var="teams_bot_password=<bot_app_password-from-azure>" \
+  -var="environment=dev"
 ```
+
+> **Note:** The Lambda is packaged as a single-file ESM bundle via Vite (see `vite.lambda.config.ts`). No `node_modules` are needed at runtime — all dependencies are inlined.
 
 ### 4. Configure Webhook Secrets
 
@@ -294,6 +308,8 @@ Runtime behavior is controlled via SSM Parameter Store:
 | Command | Description |
 |---------|-------------|
 | `pnpm build` | Compile TypeScript to `dist/` |
+| `pnpm bundle` | Bundle Lambda with Vite into a single ESM file |
+| `pnpm package` | Bundle + zip for Lambda deployment |
 | `pnpm test` | Run all unit tests |
 | `pnpm test:watch` | Run tests in watch mode |
 | `pnpm test:properties` | Run property-based tests |
