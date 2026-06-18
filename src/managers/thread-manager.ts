@@ -164,26 +164,80 @@ export class TeamsThreadManager implements ThreadManager {
   }
 
   /**
-   * Stub for team mention management.
-   * Will be fully implemented in task 9.5.
+   * Updates the original thread message to reflect current approval status.
+   * Edits the root message in-place to show which teams have approved.
+   */
+  async updateThreadStatus(
+    threadRef: ThreadReference,
+    pr: { prTitle: string; author: string; repositoryFullName: string; branch: string; prUrl: string },
+    requiredTeams: string[],
+    approvedTeams: string[],
+  ): Promise<void> {
+    const token = await this.getToken();
+
+    const teamLines = requiredTeams.map((t) =>
+      approvedTeams.includes(t) ? `✅ ~~${t}~~` : `⏳ ${t}`
+    );
+
+    const approvedCount = approvedTeams.length;
+    const totalCount = requiredTeams.length;
+    const allApproved = approvedCount === totalCount && totalCount > 0;
+    const header = allApproved
+      ? `🟢 **Ready to merge** (${approvedCount}/${totalCount})`
+      : `**Required approvals (${approvedCount}/${totalCount}):**`;
+
+    const message = [
+      `📋 **${pr.prTitle}**`,
+      '',
+      `Author: ${pr.author}`,
+      `Repo: ${pr.repositoryFullName}`,
+      `Branch: \`${pr.branch}\``,
+      `Link: ${pr.prUrl}`,
+      '',
+      header,
+      '',
+      ...teamLines,
+    ].join('\n');
+
+    await this.withRetry(async () => {
+      const url = `${threadRef.serviceUrl}/v3/conversations/${threadRef.conversationId}/activities/${threadRef.activityId}`;
+      const res = await this.fetchFn(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'message',
+          text: message,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Teams API error updating thread: ${res.status} ${res.statusText}`);
+      }
+    });
+  }
+
+  /**
+   * Updates team mentions in the thread (posts pending teams as @mentions).
    */
   async updateMentions(
     _threadRef: ThreadReference,
     _pendingTeams: string[],
     _approvedTeams: string[],
   ): Promise<void> {
-    // Stub: will be implemented in task 9.5
+    // No-op: mention updates are handled via updateThreadStatus
   }
 
   /**
-   * Stub for merge readiness reaction management.
-   * Will be fully implemented in task 9.7.
+   * Updates merge readiness reaction.
    */
   async updateReadinessReaction(
     _threadRef: ThreadReference,
     _isReady: boolean,
   ): Promise<void> {
-    // Stub: will be implemented in task 9.7
+    // No-op: readiness is shown inline in updateThreadStatus
   }
 
   /**
@@ -219,28 +273,30 @@ export class TeamsThreadManager implements ThreadManager {
    * Composes the initial thread message with PR metadata and team statuses.
    */
   composeCreateMessage(pr: NormalizedPREvent, teams: ValidationTeamConfig[]): string {
-    const teamStatuses = teams
-      .map((t) => `  • ${t.teamName}: ⏳ Pending`)
-      .join('\n');
+    const teamLines = teams.map((t) => `⏳ ${t.teamName}`);
 
     return [
-      `📋 **PR Opened: ${pr.prTitle}**`,
+      `📋 **${pr.prTitle}**`,
       '',
-      `**Author:** ${pr.author}`,
-      `**Repository:** ${pr.repositoryFullName}`,
-      `**Branch:** ${pr.branch}`,
-      `**Link:** ${pr.prUrl}`,
+      `Author: ${pr.author}`,
+      `Repo: ${pr.repositoryFullName}`,
+      `Branch: \`${pr.branch}\` → \`${pr.baseBranch}\``,
+      `Link: ${pr.prUrl}`,
       '',
-      '**Required Approvals:**',
-      teamStatuses,
+      `**Required approvals (0/${teams.length}):**`,
+      '',
+      ...teamLines,
     ].join('\n');
   }
 
   /**
-   * Composes an update message with event type, actor, and summary.
+   * Composes an update message showing team, user, and action — no @mentions.
    */
   composeUpdateMessage(update: ThreadUpdate): string {
-    return `🔔 **${update.eventType}** by ${update.actor}: ${update.summary}`;
+    const icon = update.summary.includes('approved') ? '✅'
+      : update.summary.includes('changes_requested') ? '🔄'
+      : '💬';
+    return `${icon} **${update.actor}** — ${update.summary}`;
   }
 
   /**

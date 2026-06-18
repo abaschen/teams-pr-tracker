@@ -194,7 +194,7 @@ describe('TeamsThreadManager', () => {
       expect(message).toContain('https://github.com/org/repo/pull/123');
       expect(message).toContain('Security');
       expect(message).toContain('Architecture');
-      expect(message).toContain('Pending');
+      expect(message).toContain('⏳');
     });
 
     it('should retry on Teams API errors with exponential backoff', async () => {
@@ -292,7 +292,6 @@ describe('TeamsThreadManager', () => {
       const body = JSON.parse(options.body);
       expect(body.type).toBe('message');
       expect(body.replyToId).toBe('activity-456');
-      expect(body.text).toContain('review_submitted');
       expect(body.text).toContain('reviewer1');
       expect(body.text).toContain('Approved with comments');
     });
@@ -416,32 +415,32 @@ describe('TeamsThreadManager', () => {
     it('should include all team names with pending status', () => {
       const message = manager.composeCreateMessage(samplePR, sampleTeams);
 
-      expect(message).toContain('Security: ⏳ Pending');
-      expect(message).toContain('Architecture: ⏳ Pending');
+      expect(message).toContain('⏳ Security');
+      expect(message).toContain('⏳ Architecture');
     });
 
     it('should handle empty teams list', () => {
       const message = manager.composeCreateMessage(samplePR, []);
 
       expect(message).toContain('Add new feature');
-      expect(message).toContain('Required Approvals');
+      expect(message).toContain('Required approvals (0/0)');
     });
   });
 
   describe('composeUpdateMessage', () => {
-    it('should include event type, actor, and summary', () => {
+    it('should include actor and summary without @mentions', () => {
       const update: ThreadUpdate = {
         eventType: 'review_submitted',
         actor: 'reviewer1',
-        summary: 'Approved changes',
+        summary: 'approved',
         timestamp: '2024-01-15T11:00:00Z',
       };
 
       const message = manager.composeUpdateMessage(update);
 
-      expect(message).toContain('review_submitted');
       expect(message).toContain('reviewer1');
-      expect(message).toContain('Approved changes');
+      expect(message).toContain('approved');
+      expect(message).toContain('✅');
     });
   });
 

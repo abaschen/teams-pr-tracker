@@ -277,10 +277,23 @@ export async function processEvent(event: NormalizedPREvent): Promise<void> {
         threadManager.postUpdate(state!.threadRef, {
           eventType: event.eventType,
           actor: event.reviewerAction?.reviewer ?? event.author,
-          summary: `Review: ${event.reviewerAction?.action ?? 'unknown'}`,
+          summary: `${event.reviewerAction?.action ?? 'unknown'}`,
           timestamp: event.timestamp,
         }),
       { operation: 'postReviewUpdate' },
+    );
+
+    // Update the original thread message with current approval status
+    await resilientTeamsCall(
+      () =>
+        threadManager.updateThreadStatus(state!.threadRef, {
+          prTitle: state!.prTitle,
+          author: state!.author,
+          repositoryFullName: state!.repositoryFullName,
+          branch: state!.branch,
+          prUrl: state!.prUrl,
+        }, state!.requiredTeams, state!.approvedTeams),
+      { operation: 'updateThreadStatus' },
     );
 
     // Update mentions
