@@ -1,0 +1,21 @@
+{
+  "name": "pr-tracker-cdk",
+  "version": "1.0.0",
+  "description": "AWS CDK infrastructure for PR Tracker",
+  "scripts": {
+    "build": "tsc",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --require-approval never",
+    "destroy": "cdk destroy --force",
+    "diff": "cdk diff"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.200.0",
+    "constructs": "^10.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "aws-cdk": "^2.200.0"
+  }
+}

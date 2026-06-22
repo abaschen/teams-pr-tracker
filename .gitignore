@@ -174,3 +174,8 @@ bootstrap/*.auto.tfvars
 .playwright-mcp/
 playwright.config.ts
 tests/
+
+# CDK
+cdk/dist/
+cdk/node_modules/
+cdk/cdk.out/

@@ -109,7 +109,8 @@ test/
 ├── utils/             # Utility unit tests
 └── properties/        # Property-based tests (fast-check)
 
-terraform/             # AWS infrastructure (Lambda, DynamoDB, API GW, KMS, SSM, Secrets)
+terraform/             # AWS infrastructure via Terraform (HCL)
+cdk/                   # AWS infrastructure via CDK (TypeScript) — alternative to terraform/
 teams-manifest/        # Microsoft Teams app manifest
 bootstrap/             # Azure resource provisioning (Bot registration, Teams channel)
 vite.lambda.config.ts  # Vite bundler config for Lambda packaging
